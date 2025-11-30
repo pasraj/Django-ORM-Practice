@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Django ORM Playground</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- CodeMirror -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+
+    <!-- Highlight.js -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/sql.min.js"></script>
+
+    <style>
+        .CodeMirror {
+            height: 100%;
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+        }
+
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-gray-800 border-b border-gray-700 px-6 py-3 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-3">
+            <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+            </svg>
+            <h1 class="text-xl font-bold tracking-wide">Django ORM <span class="text-green-500">Playground</span></h1>
+        </div>
+        <button id="runBtn"
+            class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md font-semibold flex items-center gap-2 transition-colors shadow-lg">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z">
+                </path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Run Query
+        </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex overflow-hidden">
+
+        <!-- Left Panel: Editor -->
+        <div class="w-1/2 flex flex-col border-r border-gray-700">
+            <div
+                class="bg-gray-800 px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-700 flex justify-between">
+                <span>Editor (Python)</span>
+                <span class="text-gray-500">Ctrl+Enter to Run</span>
+            </div>
+            <div class="flex-1 relative">
+                <textarea id="codeEditor">{{ code }}</textarea>
+            </div>
+        </div>
+
+        <!-- Right Panel: Output & SQL -->
+        <div class="w-1/2 flex flex-col bg-gray-900">
+            <!-- Tabs -->
+            <div class="flex border-b border-gray-700 bg-gray-800">
+                <button
+                    class="tab-btn px-6 py-3 text-sm font-medium text-green-400 border-b-2 border-green-500 focus:outline-none transition-colors"
+                    data-target="outputPanel">Output</button>
+                <button
+                    class="tab-btn px-6 py-3 text-sm font-medium text-gray-400 hover:text-gray-200 focus:outline-none transition-colors"
+                    data-target="sqlPanel">SQL Queries <span id="queryCountBadge"
+                        class="ml-2 bg-gray-700 text-xs px-2 py-0.5 rounded-full hidden">0</span></button>
+                <button
+                    class="tab-btn px-6 py-3 text-sm font-medium text-gray-400 hover:text-gray-200 focus:outline-none transition-colors"
+                    data-target="schemaPanel">Schema</button>
+            </div>
+
+            <!-- Output Panel -->
+            <div id="outputPanel" class="tab-content flex-1 p-4 overflow-auto font-mono text-sm">
+                <div id="executionTime" class="hidden mb-4 text-xs text-gray-500 flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Executed in <span id="timeValue" class="font-bold text-gray-300"></span>s
+                </div>
+                <pre id="outputContent" class="whitespace-pre-wrap text-gray-300">Run code to see output...</pre>
+            </div>
+
+            <!-- SQL Panel -->
+            <div id="sqlPanel" class="tab-content flex-1 p-0 overflow-auto hidden bg-gray-900">
+                <div id="sqlContent" class="divide-y divide-gray-800">
+                    <div class="p-8 text-center text-gray-500">No queries executed yet.</div>
+                </div>
+            </div>
+
+            <!-- Schema Panel -->
+            <div id="schemaPanel" class="tab-content flex-1 p-4 overflow-auto hidden bg-gray-900">
+                <div class="space-y-6">
+                    {% for model in schema %}
+                    <div class="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
+                        <div class="bg-gray-700 px-4 py-2 font-bold text-gray-200 flex items-center gap-2">
+                            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
+                                </path>
+                            </svg>
+                            {{ model.name }}
+                        </div>
+                        <div class="p-3 grid gap-2">
+                            {% for field in model.fields %}
+                            <div class="flex flex-col border-b border-gray-700 last:border-0 py-2">
+                                <span class="text-gray-300 font-mono font-bold">{{ field.name }}</span>
+                                <div class="flex items-center gap-2 flex-wrap mt-1">
+                                    <span
+                                        class="text-xs px-2 py-0.5 rounded bg-green-900 text-green-200 font-semibold">{{ field.data_type }}</span>
+                                    {% if field.related_model %}
+                                    <span class="text-xs px-2 py-0.5 rounded bg-blue-900 text-blue-200">-> {{ field.related_model }}</span>
+                                    {% endif %}
+                                    {% if field.related_name %}
+                                    <span class="text-xs px-2 py-0.5 rounded bg-purple-900 text-purple-200"
+                                        title="Reverse Accessor">Rev: {{ field.related_name }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Initialize CodeMirror
+        var editor = CodeMirror.fromTextArea(document.getElementById("codeEditor"), {
+            mode: "python",
+            theme: "dracula",
+            lineNumbers: true,
+            indentUnit: 4,
+            matchBrackets: true,
+            extraKeys: {
+                "Ctrl-Enter": function (cm) { runQuery(); },
+                "Cmd-Enter": function (cm) { runQuery(); }
+            }
+        });
+
+        // Tab Switching Logic
+        const tabs = document.querySelectorAll('.tab-btn');
+        const contents = document.querySelectorAll('.tab-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Reset tabs
+                tabs.forEach(t => {
+                    t.classList.remove('text-green-400', 'border-green-500');
+                    t.classList.add('text-gray-400', 'border-transparent');
+                });
+                // Activate clicked tab
+                tab.classList.remove('text-gray-400', 'border-transparent');
+                tab.classList.add('text-green-400', 'border-green-500');
+
+                // Show content
+                contents.forEach(c => c.classList.add('hidden'));
+                document.getElementById(tab.dataset.target).classList.remove('hidden');
+            });
+        });
+
+        // Run Query Logic
+        document.getElementById('runBtn').addEventListener('click', runQuery);
+
+        function runQuery() {
+            const code = editor.getValue();
+            const btn = document.getElementById('runBtn');
+            const outputContent = document.getElementById('outputContent');
+            const sqlContent = document.getElementById('sqlContent');
+            const timeDisplay = document.getElementById('executionTime');
+
+            // Loading State
+            btn.disabled = true;
+            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Running...`;
+            outputContent.innerHTML = '<span class="text-gray-500">Executing...</span>';
+
+            fetch('', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: 'code=' + encodeURIComponent(code)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    // Update Output
+                    outputContent.textContent = data.result || 'No output returned.';
+
+                    // Update Time
+                    timeDisplay.classList.remove('hidden');
+                    document.getElementById('timeValue').textContent = data.execution_time;
+
+                    // Update SQL
+                    const badge = document.getElementById('queryCountBadge');
+                    if (data.queries && data.queries.length > 0) {
+                        badge.textContent = data.queries.length;
+                        badge.classList.remove('hidden');
+
+                        sqlContent.innerHTML = data.queries.map((q, i) => `
+                        <div class="p-4 hover:bg-gray-800 transition-colors">
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="text-xs font-bold text-green-500">Query #${i + 1}</span>
+                                <span class="text-xs text-gray-500">${q.time}s</span>
+                            </div>
+                            <pre><code class="language-sql text-sm">${q.sql}</code></pre>
+                        </div>
+                    `).join('');
+
+                        // Apply highlighting
+                        document.querySelectorAll('pre code').forEach((block) => {
+                            hljs.highlightElement(block);
+                        });
+                    } else {
+                        badge.classList.add('hidden');
+                        sqlContent.innerHTML = '<div class="p-8 text-center text-gray-500">No SQL queries executed.</div>';
+                    }
+                })
+                .catch(error => {
+                    outputContent.innerHTML = `<span class="text-red-500">Error: ${error}</span>`;
+                })
+                .finally(() => {
+                    // Reset Button
+                    btn.disabled = false;
+                    btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Run Query`;
+                });
+        }
+    </script>
+</body>
+
+</html>
